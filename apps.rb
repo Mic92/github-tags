@@ -40,15 +40,21 @@ def generate_feed(user, repo, limit)
 
     tags.each do |tag|
       sha = tag["commit"]["sha"][0..15]
-      commit = settings.cache.get(sha)
-      if commit.nil?
-        resp = settings.github.repos.commits.get(user, repo, sha)["commit"]
-        author = resp["author"]
-        date = Time.parse(author[:date])
-        commit = Commit.new(author[:name], author[:email],
-                            date, resp[:message])
-        settings.cache.set(sha, commit)
-      end
+      resp = settings.github.repos.commits.get(user, repo, sha)["commit"]
+      author = resp["author"]
+      date = Time.parse(author[:date])
+      commit = Commit.new(author[:name], author[:email],
+                          date, resp[:message])
+      ## doesn't have memcache :(
+      #commit = settings.cache.get(sha)
+      #if commit.nil?
+      #  resp = settings.github.repos.commits.get(user, repo, sha)["commit"]
+      #  author = resp["author"]
+      #  date = Time.parse(author[:date])
+      #  commit = Commit.new(author[:name], author[:email],
+      #                      date, resp[:message])
+      #  settings.cache.set(sha, commit)
+      #end
       maker.items.new_item do |item|
         item.title = "#{user}/#{repo} published #{tag["name"]}"
         item.author = "#{commit.author_name} <#{commit.author_email}>"
@@ -74,19 +80,19 @@ get "/feed/:user/:repo\.atom" do
   user = params[:user]
   repo = params[:repo]
 
-  key = "#{user}-#{repo}-#{limit}"
-  cache = settings.cache.get(key)
-  unless cache.nil?
-    time = 10 * 60
-    response['Cache-Control'] = "public, max-age=#{time}"
-    return cache
-  end
+  #key = "#{user}-#{repo}-#{limit}"
+  #cache = settings.cache.get(key)
+  #unless cache.nil?
+  #  time = 10 * 60
+  #  response['Cache-Control'] = "public, max-age=#{time}"
+  #  return cache
+  #end
 
   begin
     rss = generate_feed(user, repo, limit).to_s
     time = 10 * 60
     response['Cache-Control'] = "public, max-age=#{time}"
-    settings.cache.set(key, rss, time)
+  #  settings.cache.set(key, rss, time)
 
     return rss
   rescue Exception => e
