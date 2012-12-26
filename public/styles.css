@@ -1,0 +1,61 @@
+* {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+h1, h2, h3 {
+  font-weight: 400;
+  text-transform: capitalize;
+}
+h3 {
+  text-align:right;
+}
+#content {
+  width: 560px;
+  margin: 0 auto;
+  padding-top: 80px;
+  color: #444;
+}
+a, a:visited {
+  color: #c00;
+}
+#content p {
+  font-weight: 200;
+}
+#content li {
+  list-style-position: inside;
+}
+.github-url {
+  font-weight: bold;
+}
+
+span.error-box {
+  display: inline-block;
+  padding: 0.1em 0.1em;
+  border:solid 0.01em #FBD3C6;
+  background:#FDE4E1;
+  color:#CB4721;
+  font-size: 0.8em;
+  font-weight:bold;
+}
+
+
+input[type=text] {
+    border:0.1em solid #dadada;
+    border-radius:0.2em;
+    font-size:1em;
+    padding:0.2em;
+}
+
+input[type=text]:focus {
+    outline:none;
+    border-color:#9ecaed;
+    box-shadow:0 0 0.2em #9ecaed;
+}
+
+input[type=text].has-errors {
+  border:0.11em solid #FBD3C6;
+}
+
+input[type=text].has-errors:focus {
+  border-color:#FBD3C6;
+  box-shadow:0 0 0.2em #FBD3C6;
+}
