@@ -5,8 +5,8 @@ h1, h2, h3 {
   font-weight: 400;
   text-transform: capitalize;
 }
-h3 {
-  text-align:right;
+th {
+  font-weight: 400;
 }
 #content {
   width: 560px;
@@ -37,6 +37,17 @@ span.error-box {
   font-weight:bold;
 }
 
+.error {
+  color: rgb(185, 74, 72);
+}
+
+.valid {
+  color: rgb(70, 136, 71);
+}
+
+.warning {
+  color: rgb(192, 152, 83);
+}
 
 input[type=text] {
     border:0.1em solid #dadada;

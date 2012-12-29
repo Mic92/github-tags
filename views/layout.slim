@@ -1,0 +1,17 @@
+doctype html
+html
+  head
+    meta charset="utf-8"
+    title Github Tag Feeds
+    link rel="stylesheet" media="screen, projection" href="/styles.css"
+    link rel="stylesheet" href="gh-fork-ribbon.css"
+    /[if IE]
+      link rel="stylesheet" href="gh-fork-ribbon.ie.css"
+    meta name="viewport" content="width=device-width, initial-scale=1"
+    /[if lt IE 9]
+      script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"
+  body
+    .github-fork-ribbon-wrapper.right
+      .github-fork-ribbon
+        a href="https://github.com/simonwhitaker/github-fork-ribbon-css" Fork me on GitHub
+    == yield

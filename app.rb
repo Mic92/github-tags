@@ -13,6 +13,7 @@ require "github_api"
 
 CLIENT_ID = ENV["GITHUB_CLIENT_ID"]
 CLIENT_SECRET = ENV["GITHUB_CLIENT_SECRET"]
+OAUTH_TOKEN = ENV["GITHUB_OAUTH_TOKEN"]
 
 set :db, Sequel.connect(ENV['DATABASE_URL'] || 'postgres://localhost/gittags')
 settings.db.loggers << Logger.new(STDOUT)
@@ -24,7 +25,9 @@ class Commit < Sequel::Model
   many_to_one :feed
 end
 
-set :github, Github.new(client_id: CLIENT_ID, client_secret: CLIENT_SECRET)
+set :github, Github.new(client_id: CLIENT_ID,
+                        client_secret: CLIENT_SECRET,
+                        oauth_token: OAUTH_TOKEN)
 
 helpers do
   def has_errors(field)
@@ -104,6 +107,10 @@ get "/callback" do
   EOF
 end
 
+get "/status" do
+  slim :status
+end
+
 get "/feed/:user/:repo\.atom" do
   content_type 'application/atom+xml'
 
@@ -181,49 +188,3 @@ end
 get "/" do
   slim :index
 end
-
-__END__
-@@layout
-doctype html
-html
-  head
-    meta charset="utf-8"
-    title Github Tag Feeds
-    link rel="stylesheet" media="screen, projection" href="/styles.css"
-    link rel="stylesheet" href="gh-fork-ribbon.css"
-    /[if IE]
-      link rel="stylesheet" href="gh-fork-ribbon.ie.css"
-    meta name="viewport" content="width=device-width, initial-scale=1"
-    /[if lt IE 9]
-      script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"
-  body
-    .github-fork-ribbon-wrapper.right
-      .github-fork-ribbon
-        a href="https://github.com/simonwhitaker/github-fork-ribbon-css" Fork me on GitHub
-
-    == yield
-@@index
-
-#content
-  h1 Github Tag Feeds
-  h2 subscribe to git tags of github projects
-  - if @errors
-    p
-      span.error-box Your form contains errors:
-      ul
-      - for error in @errors
-        li
-          = error.last
-  p
-    form action="/" method="POST"
-      span.github-url
-        ' github.com/
-        input class=has_errors(:user) type="text" name="user" value="" placeholder="Github user"
-        '/
-        input class=has_errors(:repo) type="text" name="repo" value="" placeholder="Github repository"
-      br
-      input type="submit" value="Get the Feed"
-  - if @feed_link
-    p Put this feed link in your reader
-    p
-    a href=url(@feed_link) = url(@feed_link)
