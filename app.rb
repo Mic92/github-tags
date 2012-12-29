@@ -25,6 +25,8 @@ class Commit < Sequel::Model
   many_to_one :feed
 end
 
+CommitStruct = Struct.new(:sha, :feed_id, :date, :message, :author_name, :author_email)
+
 set :github, Github.new(client_id: CLIENT_ID,
                         client_secret: CLIENT_SECRET,
                         oauth_token: OAUTH_TOKEN)
@@ -51,15 +53,27 @@ class FeedGenerator
 
     tags = settings.github.repos.tags(@user, @repo)
     hashes = tags.map {|c| c["commit"]["sha"] }
-    tag_names = Hash[tags.map {|t| [t["commit"]["sha"], t["name"]]}]
 
     commits = @feed.commits
     cached_hashes = commits.map {|c| c.sha }
 
-    new_commits = get_commits(hashes - cached_hashes)
-    commits << Commit.multi_insert(new_commits) if new_commits.size > 0
+    new_commits = get_commits((hashes - cached_hashes).uniq)
+    if new_commits.size > 0
+      inserts = new_commits.map do |c|
+        { sha: c.sha, feed_id: c.feed_id, date: c.date, message: c.message,
+          author_name: c.author_name, author_email: c.author_email }
+      end
+      Commit.multi_insert(inserts)
+      commits |= new_commits
+    end
 
-    commits.sort!{|a,b| b.date <=> a.date}[0..20]
+    commits_by_sha = Hash[commits.map {|c| [c.sha, c]}]
+
+    tags.sort! do |a,b|
+      a_date = commits_by_sha[a["commit"]["sha"]].date
+      b_date = commits_by_sha[b["commit"]["sha"]].date
+      b_date <=> a_date
+    end
 
     rss = RSS::Maker.make("atom") do |maker|
       maker.channel.author = @user
@@ -67,9 +81,10 @@ class FeedGenerator
       maker.channel.about = "https://github.com/#{@name}"
       maker.channel.title = "Git Tags of #{@name}"
 
-      commits.each do |commit|
+      tags.each do |tag|
+        commit = commits_by_sha[tag["commit"]["sha"]]
         maker.items.new_item do |item|
-          item.title = "#{@name} published #{tag_names[commit.sha]}"
+          item.title = "#{@name} published #{tag["name"]}"
           item.author = "#{commit.author_name} <#{commit.author_email}>"
           item.link = "#{base_link}/#{commit.sha}"
           item.updated = commit.date
@@ -87,8 +102,7 @@ class FeedGenerator
       resp = settings.github.repos.commits.get(@user, @repo, sha)["commit"]
       author = resp["author"]
       date = Time.parse(author[:date])
-      { sha: sha, feed_id: @feed.id, date: date, message: resp[:message],
-        author_name: author[:name], author_email: author[:email] }
+      CommitStruct.new(sha, @feed.id, date, resp[:message], author[:name], author[:email])
     end
   end
 end
