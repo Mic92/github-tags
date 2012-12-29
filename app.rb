@@ -101,10 +101,8 @@ end
 get "/callback" do
   authorization_code = params[:code]
   token = settings.github.get_token authorization_code
-  access_token = token.token
-  return <<-EOF
-  #{access_token}
-  EOF
+  @access_token = token.token
+  slim :callback
 end
 
 get "/status" do
