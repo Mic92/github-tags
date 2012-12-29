@@ -2,21 +2,29 @@ require "bundler/setup"
 require "rss"
 
 require "sinatra"
-require "dalli"
+require "sequel"
+require "uri"
 require "slim"
+require "logger"
+
+require "pry"
 
 require "github_api"
 
 CLIENT_ID = ENV["GITHUB_CLIENT_ID"]
 CLIENT_SECRET = ENV["GITHUB_CLIENT_SECRET"]
 
-set :cache, Dalli::Client.new(ENV["MEMCACHE_SERVERS"],
-                              username: ENV["MEMCACHE_USERNAME"],
-                              password: ENV["MEMCACHE_PASSWORD"])
+set :db, Sequel.connect(ENV['DATABASE_URL'] || 'postgres://localhost/gittags')
+settings.db.loggers << Logger.new(STDOUT)
+
+class Feed < Sequel::Model
+  one_to_many :commits
+end
+class Commit < Sequel::Model
+  many_to_one :feed
+end
 
 set :github, Github.new(client_id: CLIENT_ID, client_secret: CLIENT_SECRET)
-
-Commit = Struct.new(:author_name, :author_email, :date, :message)
 
 helpers do
   def has_errors(field)
@@ -28,71 +36,81 @@ helpers do
   end
 end
 
-def generate_feed(user, repo, limit)
-  base_link = "https://github.com/#{user}/#{repo}/commit"
-  tags = settings.github.repos.tags(user, repo)[0..limit]
+class FeedGenerator
+  def initialize(user, repo, feed)
+    @user = user
+    @repo = repo
+    @name = "#{@user}/#{@repo}"
+    @feed = feed
+  end
+  def make_feed
+    base_link = "https://github.com/#{@name}/commit"
 
-  rss = RSS::Maker.make("atom") do |maker|
-    maker.channel.author = user
-    maker.channel.updated = Time.now.to_s
-    maker.channel.about = "https://github.com/#{user}/#{repo}"
-    maker.channel.title = "Git Tags of #{user}/#{repo}"
+    tags = settings.github.repos.tags(@user, @repo)
+    hashes = tags.map {|c| c["commit"]["sha"] }
+    tag_names = Hash[tags.map {|t| [t["commit"]["sha"], t["name"]]}]
 
-    tags.each do |tag|
-      sha = tag["commit"]["sha"][0..15]
-      resp = settings.github.repos.commits.get(user, repo, sha)["commit"]
-      author = resp["author"]
-      date = Time.parse(author[:date])
-      commit = Commit.new(author[:name], author[:email],
-                          date, resp[:message])
-      ## doesn't have memcache :(
-      #commit = settings.cache.get(sha)
-      #if commit.nil?
-      #  resp = settings.github.repos.commits.get(user, repo, sha)["commit"]
-      #  author = resp["author"]
-      #  date = Time.parse(author[:date])
-      #  commit = Commit.new(author[:name], author[:email],
-      #                      date, resp[:message])
-      #  settings.cache.set(sha, commit)
-      #end
-      maker.items.new_item do |item|
-        item.title = "#{user}/#{repo} published #{tag["name"]}"
-        item.author = "#{commit.author_name} <#{commit.author_email}>"
-        item.link = "#{base_link}/#{sha}"
-        item.updated = commit.date
-        item.description = "by #{commit.author_name} at #{commit.date}:\n #{commit.message}"
+    commits = @feed.commits
+    cached_hashes = commits.map {|c| c.sha }
+
+    new_commits = get_commits(hashes - cached_hashes)
+    commits << Commit.multi_insert(new_commits) if new_commits.size > 0
+
+    commits.sort!{|a,b| b.date <=> a.date}
+
+    rss = RSS::Maker.make("atom") do |maker|
+      maker.channel.author = @user
+      maker.channel.updated = Time.now.to_s
+      maker.channel.about = "https://github.com/#{@name}"
+      maker.channel.title = "Git Tags of #{@name}"
+
+      commits.each do |commit|
+        maker.items.new_item do |item|
+          item.title = "#{@name} published #{tag_names[commit.sha]}"
+          item.author = "#{commit.author_name} <#{commit.author_email}>"
+          item.link = "#{base_link}/#{commit.sha}"
+          item.updated = commit.date
+          item.description = "by #{commit.author_name} at #{commit.date}:\n #{commit.message}"
+        end
       end
     end
+
+    return rss.to_s
   end
 
-  return rss.to_s
+  private
+  def get_commits(commits)
+    commits.map do |sha|
+      resp = settings.github.repos.commits.get(@user, @repo, sha)["commit"]
+      author = resp["author"]
+      date = Time.parse(author[:date])
+      { sha: sha, feed_id: @feed.id, date: date, message: resp[:message],
+        author_name: author[:name], author_email: author[:email] }
+    end
+  end
 end
 
 get "/feed/:user/:repo\.atom" do
   content_type 'application/atom+xml'
 
-  limit = params[:limit] || 5
-  limit = limit.to_i
-  unless (1..20).include?(limit)
-    limit = 5
-  end
-
   user = params[:user]
   repo = params[:repo]
 
-  #key = "#{user}-#{repo}-#{limit}"
-  #cache = settings.cache.get(key)
-  #unless cache.nil?
-  #  time = 10 * 60
-  #  response['Cache-Control'] = "public, max-age=#{time}"
-  #  return cache
-  #end
+  feed = Feed.find_or_create(name: "#{user}/#{repo}")
+
+  left_time = 10 * 60 - (Time.now - (feed.updated_at or Time.at(0)))
+  if feed.content and left_time > 0
+    response['Cache-Control'] = "public, max-age=#{left_time}"
+    return feed.content
+  end
 
   begin
-    rss = generate_feed(user, repo, limit).to_s
-    time = 10 * 60
-    response['Cache-Control'] = "public, max-age=#{time}"
-  #  settings.cache.set(key, rss, time)
+    generator = FeedGenerator.new(user, repo, feed)
+    rss = generator.make_feed
+    response['Cache-Control'] = "public, max-age=#{10 * 60}"
+    feed.content = rss
+    feed.updated_at = Time.now
+    feed.save
 
     return rss
   rescue Exception => e
@@ -127,14 +145,6 @@ post "/" do
   if repo.nil? or repo.empty?
     @errors[:repo] = "please fill in a github repository"
   end
-  limit = params[:limit]
-  if limit.nil? or limit.empty?
-    @errors[:limit] = "please set a feed limit"
-  end
-  limit = limit.to_i
-  if not (1..20).include?(limit)
-    @errors[:limit] = "feed limit must between 1 and 20"
-  end
 
   begin
     settings.github.users.get user: user
@@ -149,7 +159,6 @@ post "/" do
 
   if @errors.size == 0
     @feed_link = "/feed/#{user}/#{repo}.atom"
-    @feed_link += "?limit=#{limit}" if limit != 5
     @errors = nil
   end
   return slim :index
@@ -198,14 +207,6 @@ html
         input class=has_errors(:user) type="text" name="user" value="" placeholder="Github user"
         '/
         input class=has_errors(:repo) type="text" name="repo" value="" placeholder="Github repository"
-      br
-      label Entries per Feed:
-      select class=has_errors(:limit) name="limit"
-        option value="5" 5
-        option value="1" 1
-        option value="10" 10
-        option value="15" 15
-        option value="20" 20
       br
       input type="submit" value="Get the Feed"
   - if @feed_link
