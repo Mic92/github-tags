@@ -59,7 +59,7 @@ class FeedGenerator
     new_commits = get_commits(hashes - cached_hashes)
     commits << Commit.multi_insert(new_commits) if new_commits.size > 0
 
-    commits.sort!{|a,b| b.date <=> a.date}
+    commits.sort!{|a,b| b.date <=> a.date}[0..20]
 
     rss = RSS::Maker.make("atom") do |maker|
       maker.channel.author = @user
