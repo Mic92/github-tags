@@ -90,6 +90,20 @@ class FeedGenerator
   end
 end
 
+get "/register" do
+  address = settings.github.authorize_url redirect_uri: url("/callback")
+  redirect address
+end
+
+get "/callback" do
+  authorization_code = params[:code]
+  token = settings.github.get_token authorization_code
+  access_token = token.token
+  return <<-EOF
+  #{access_token}
+  EOF
+end
+
 get "/feed/:user/:repo\.atom" do
   content_type 'application/atom+xml'
 
