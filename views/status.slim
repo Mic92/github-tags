@@ -33,7 +33,9 @@ p
         td.warning = @remaining
       - else
         td.error = @remaining
-p
-  a href="/register" Get an OAuth key
+
+- if settings.github.authenticated?
+  p
+    a href="/register" Get an OAuth key
 p
   a href="github.com/Mic92/github-tags" Documentation
