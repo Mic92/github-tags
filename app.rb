@@ -11,11 +11,13 @@ require "pry"
 
 require "github_api"
 
+require "./feed_generator"
+
 CLIENT_ID = ENV["GITHUB_CLIENT_ID"]
 CLIENT_SECRET = ENV["GITHUB_CLIENT_SECRET"]
 OAUTH_TOKEN = ENV["GITHUB_OAUTH_TOKEN"]
 
-set :db, Sequel.connect(ENV['DATABASE_URL'] || 'postgres://localhost/gittags')
+set :db, Sequel.connect(ENV["DATABASE_URL"] || "sqlite://tagfeeds.db")
 settings.db.loggers << Logger.new(STDOUT)
 
 class Feed < Sequel::Model
@@ -25,7 +27,6 @@ class Commit < Sequel::Model
   many_to_one :feed
 end
 
-CommitStruct = Struct.new(:sha, :feed_id, :date, :message, :author_name, :author_email)
 
 set :github, Github.new(client_id: CLIENT_ID,
                         client_secret: CLIENT_SECRET,
@@ -37,72 +38,6 @@ helpers do
       "has-errors"
     else
       ""
-    end
-  end
-end
-
-class FeedGenerator
-  def initialize(user, repo, feed)
-    @user = user
-    @repo = repo
-    @name = "#{@user}/#{@repo}"
-    @feed = feed
-  end
-  def make_feed
-    base_link = "https://github.com/#{@name}/commit"
-
-    tags = settings.github.repos.tags(@user, @repo)
-    hashes = tags.map {|c| c["commit"]["sha"] }
-
-    commits = @feed.commits
-    cached_hashes = commits.map {|c| c.sha }
-
-    new_commits = get_commits((hashes - cached_hashes).uniq)
-    if new_commits.size > 0
-      inserts = new_commits.map do |c|
-        { sha: c.sha, feed_id: c.feed_id, date: c.date, message: c.message,
-          author_name: c.author_name, author_email: c.author_email }
-      end
-      Commit.multi_insert(inserts)
-      commits |= new_commits
-    end
-
-    commits_by_sha = Hash[commits.map {|c| [c.sha, c]}]
-
-    tags.sort! do |a,b|
-      a_date = commits_by_sha[a["commit"]["sha"]].date
-      b_date = commits_by_sha[b["commit"]["sha"]].date
-      b_date <=> a_date
-    end
-
-    rss = RSS::Maker.make("atom") do |maker|
-      maker.channel.author = @user
-      maker.channel.updated = Time.now.to_s
-      maker.channel.about = "https://github.com/#{@name}"
-      maker.channel.title = "Git Tags of #{@name}"
-
-      tags.each do |tag|
-        commit = commits_by_sha[tag["commit"]["sha"]]
-        maker.items.new_item do |item|
-          item.title = "#{@name} published #{tag["name"]}"
-          item.author = "#{commit.author_name} <#{commit.author_email}>"
-          item.link = "#{base_link}/#{commit.sha}"
-          item.updated = commit.date
-          item.description = "by #{commit.author_name} at #{commit.date}:\n #{commit.message}"
-        end
-      end
-    end
-
-    return rss.to_s
-  end
-
-  private
-  def get_commits(commits)
-    commits.map do |sha|
-      resp = settings.github.repos.commits.get(@user, @repo, sha)["commit"]
-      author = resp["author"]
-      date = Time.parse(author[:date])
-      CommitStruct.new(sha, @feed.id, date, resp[:message], author[:name], author[:email])
     end
   end
 end
