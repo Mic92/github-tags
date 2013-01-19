@@ -58,7 +58,12 @@ get "/status" do
   slim :status
 end
 
+# legacy links
 get "/feed/:user/:repo\.atom" do
+  redirect "/github/#{params[:user]}/#{params[:repo]}.atom", 301
+end
+
+get "/github/:user/:repo\.atom" do
   content_type 'application/atom+xml'
 
   user = params[:user]
@@ -126,7 +131,7 @@ post "/" do
   end
 
   if @errors.size == 0
-    @feed_link = "/feed/#{user}/#{repo}.atom"
+    @feed_link = "/github/#{user}/#{repo}.atom"
     @errors = nil
   end
   return slim :index
