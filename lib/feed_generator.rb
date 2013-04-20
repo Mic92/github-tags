@@ -1,17 +1,21 @@
 CommitStruct = Struct.new(:sha, :feed_id, :date, :message,
                           :author_name, :author_email)
-
 class FeedGenerator
+  include Settings
+
   def initialize(user, repo, feed)
     @user = user
     @repo = repo
     @name = "#{@user}/#{@repo}"
     @feed = feed
+    @github = Github.new(client_id: CLIENT_ID,
+                         client_secret: CLIENT_SECRET,
+                         oauth_token: OAUTH_TOKEN)
   end
   def make_feed
     base_link = "https://github.com/#{@name}/commit"
 
-    tags = settings.github.repos.tags(@user, @repo)
+    tags = @github.repos.tags(@user, @repo).to_ary
     hashes = tags.map {|c| c["commit"]["sha"] }
 
     commits = @feed.commits
@@ -59,7 +63,7 @@ class FeedGenerator
   private
   def get_commits(commits)
     commits.map do |sha|
-      resp = settings.github.repos.commits.get(@user, @repo, sha)["commit"]
+      resp = @github.repos.commits.get(@user, @repo, sha)["commit"]
       author = resp["author"]
       date = Time.parse(author[:date])
       CommitStruct.new(sha, @feed.id, date, resp[:message], author[:name], author[:email])

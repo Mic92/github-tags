@@ -1,0 +1,27 @@
+
+h1 Github Tag Feeds
+h2 subscribe to git tags of github projects
+
+- if @errors
+  p
+    span.error-box Your form contains errors:
+    ul
+    - for error in @errors
+      li
+        = error.last
+p
+  form action="/" method="POST"
+    span.github-url
+      ' github.com/
+      input#user-input class=has_errors(:user) type="text" name="user" value="" placeholder="Github user" list="user-list"
+      '/
+      input#repo-input class=has_errors(:repo) type="text" name="repo" value="" placeholder="Github repository" list="repo-list"
+    br
+    input type="submit" value="Get the Feed"
+- if @feed_link
+  p Put this feed link in your reader
+  p
+    a href=url(@feed_link) = url(@feed_link)
+
+datalist#user-list
+datalist#repo-list
