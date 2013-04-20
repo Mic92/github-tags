@@ -1,7 +1,5 @@
 module GithubTags
   class App < Sinatra::Base
-    include Settings
-
     def has_errors(field)
       if @errors and @errors[field]
         "has-errors"
@@ -10,9 +8,9 @@ module GithubTags
       end
     end
 
-    set :github, Github.new(client_id: CLIENT_ID,
-                            client_secret: CLIENT_SECRET,
-                            oauth_token: OAUTH_TOKEN)
+    set :github, Github.new(client_id: ENV["GITHUB_CLIENT_ID"],
+                            client_secret: ENV["GITHUB_CLIENT_SECRET"],
+                            oauth_token: ENV["GITHUB_OAUTH_TOKEN"])
     get "/register" do
       address = settings.github.authorize_url redirect_uri: url("/callback")
       redirect address

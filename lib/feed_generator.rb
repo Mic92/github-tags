@@ -1,16 +1,14 @@
 CommitStruct = Struct.new(:sha, :feed_id, :date, :message,
                           :author_name, :author_email)
 class FeedGenerator
-  include Settings
-
   def initialize(user, repo, feed)
     @user = user
     @repo = repo
     @name = "#{@user}/#{@repo}"
     @feed = feed
-    @github = Github.new(client_id: CLIENT_ID,
-                         client_secret: CLIENT_SECRET,
-                         oauth_token: OAUTH_TOKEN)
+    @github = Github.new(client_id: ENV["GITHUB_CLIENT_ID"],
+                         client_secret: ENV["GITHUB_CLIENT_SECRET"],
+                         oauth_token: ENV["GITHUB_OAUTH_TOKEN"])
   end
   def make_feed
     base_link = "https://github.com/#{@name}/commit"
