@@ -6,13 +6,13 @@ p
       th State
     tr
       td Github Client Key:
-      - unless CLIENT_ID.nil?
+      - unless ENV["GITHUB_CLIENT_ID"].nil?
         td.valid available
       - else
         td.error not availabe
     tr
       td Github Client Secret:
-      - unless CLIENT_SECRET.nil?
+      - unless ENV["GITHUB_CLIENT_SECRET"].nil?
         td.valid available
       - else
         td.error not availabe
@@ -20,7 +20,7 @@ p
       td OAuth Key:
       - if settings.github.authenticated?
         td.valid valid
-      - elsif OAUTH_TOKEN.nil?
+      - elsif ENV["GITHUB_OAUTH_TOKEN"].nil?
         td.error not available
       - else
         td.warning not valid
