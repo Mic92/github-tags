@@ -15,6 +15,6 @@ group :production do
   gem "pg"
 end
 
-group :developement do
-  gem "sqlite3"
-end
+#group :developement do
+#  gem "sqlite3"
+#end
