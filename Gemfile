@@ -5,6 +5,7 @@ gem "slim"
 gem "github_api"
 gem "sequel"
 gem "pry"
+gem "tilt", "~> 1.4.1"
 
 group :developement do
   gem "shotgun"
