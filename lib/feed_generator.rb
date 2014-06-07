@@ -16,7 +16,7 @@ class FeedGenerator
     tags = @github.repos.tags(@user, @repo).to_ary
     hashes = tags.map {|c| c["commit"]["sha"] }
 
-    commits = @feed.commits
+    commits = @feed.commits.first(20)
     cached_hashes = commits.map {|c| c.sha }
 
     new_commits = get_commits((hashes - cached_hashes).uniq)
