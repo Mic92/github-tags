@@ -1,9 +1,9 @@
 source "https://rubygems.org"
-ruby "2.1.2"
+ruby "2.2.4"
 
 gem "sinatra"
 gem "slim"
-gem "github_api"
+gem "octokit"
 gem "sequel"
 gem "pry"
 gem "tilt", "~> 1.4.1"

@@ -6,14 +6,13 @@ class FeedGenerator
     @repo = repo
     @name = "#{@user}/#{@repo}"
     @feed = feed
-    @github = Github.new(client_id: ENV["GITHUB_CLIENT_ID"],
-                         client_secret: ENV["GITHUB_CLIENT_SECRET"],
-                         oauth_token: ENV["GITHUB_OAUTH_TOKEN"])
+    @github = Octokit::Client.new
   end
+
   def make_feed
     base_link = "https://github.com/#{@name}/commit"
 
-    tags = @github.repos.tags(@user, @repo).to_ary
+    tags = @github.tags("#{@user}/#{@repo}")
     hashes = tags.map {|c| c["commit"]["sha"] }
 
     commits = @feed.commits.first(20)
@@ -61,9 +60,9 @@ class FeedGenerator
   private
   def get_commits(commits)
     commits.map do |sha|
-      resp = @github.repos.commits.get(@user, @repo, sha)["commit"]
+      resp = @github.commit("#{@user}/#{@repo}", sha).commit
       author = resp["author"]
-      date = Time.parse(author[:date])
+      date = author[:date]
       CommitStruct.new(sha, @feed.id, date, resp[:message], author[:name], author[:email])
     end
   end
