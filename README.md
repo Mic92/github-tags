@@ -26,7 +26,7 @@ Add this project as a remote
 
 Configure Postgres
 
-    $ heroku addons:add heroku-postgresql:dev
+    $ heroku addons:create heroku-postgresql:hobby-dev
     Adding heroku-postgresql:dev to sushi... done, v69 (free)
     Attached as HEROKU_POSTGRESQL_RED
     Database has been created and is available
