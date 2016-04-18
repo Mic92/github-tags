@@ -8,18 +8,26 @@ module GithubTags
       end
     end
 
-    set :github, Github.new(client_id: ENV["GITHUB_CLIENT_ID"],
-                            client_secret: ENV["GITHUB_CLIENT_SECRET"],
-                            oauth_token: ENV["GITHUB_OAUTH_TOKEN"])
+    Octokit.configure do |c|
+      c.client_id = ENV['GITHUB_CLIENT_ID']
+      c.client_secret = ENV['GITHUB_CLIENT_SECRET']
+      c.access_token = ENV['GITHUB_OAUTH_TOKEN']
+    end
+
+    set :github, Octokit::Client.new
+
     get "/register" do
-      address = settings.github.authorize_url redirect_uri: url("/callback")
+      address = settings.github.authorize_url(
+        ENV['GITHUB_CLIENT_ID'],
+        redirect_uri: url("/callback")
+      )
       redirect address
     end
 
     get "/callback" do
       authorization_code = params[:code]
-      token = settings.github.get_token authorization_code
-      @access_token = token.token
+      token = settings.github.exchange_code_for_token authorization_code
+      @access_token = token.access_token
       slim :callback
     end
 
@@ -89,13 +97,13 @@ module GithubTags
       end
 
       begin
-        settings.github.users.get user: user
+        settings.github.user user
         begin
-          settings.github.repos.get user, repo
-        rescue Github::Error::NotFound => e
-          @errors[:repo] = "git repository does not exist"
+          settings.github.repository "#{user}/#{repo}"
+        rescue Octokit::NotFound => e
+          @errors[:repo] = "github repository does not exist"
         end
-      rescue Github::Error::NotFound => e
+      rescue Octokit::NotFound
         @errors[:user] = "github user does not exist"
       end
 

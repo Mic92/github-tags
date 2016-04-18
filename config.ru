@@ -2,7 +2,7 @@ require 'bundler'
 Bundler.require
 require "sinatra/base"
 require 'json'
-require "github_api"
+require "octokit"
 require "logger"
 require "rss"
 require "sequel"

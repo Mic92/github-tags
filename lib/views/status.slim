@@ -18,7 +18,7 @@ p
         td.error not availabe
     tr
       td OAuth Key:
-      - if settings.github.authenticated?
+      - if settings.github.token_authenticated?
         td.valid valid
       - elsif ENV["GITHUB_OAUTH_TOKEN"].nil?
         td.error not available
@@ -34,7 +34,7 @@ p
       - else
         td.error = @remaining
 
-- if settings.github.authenticated?
+- if settings.github.application_authenticated?
   p
     a href="/register" Get an OAuth key
 p
